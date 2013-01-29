@@ -16,7 +16,7 @@ my @teams;
 my %tokens = &checkForTokens();
 my $app=Net::OAuthStuff->new(%tokens);
 
-&getToken($app); # make sure we have token
+&getAccessToken($app); # will read from config file or prompt if not found
 
 # OK, now we can get the matches for each team
 foreach my $team (@teams) {
@@ -98,7 +98,7 @@ sub checkForTokens {
     return %retVal;
 }
 
-sub getToken {
+sub getAccessToken {
     my $app=shift;
 
     return if ($app->authorized);
@@ -112,13 +112,13 @@ sub getToken {
     }
 
     print "Please go to " . $app->get_authorization_url(callback=>'oob') . "\n";
-    print "Then hit return after\n";
+    print "Type in the code you get after authenticating here: \n";
     my $code = <STDIN>;
     chomp $code;
     print "code from website is '$code'\n" if ($debug);
     my ($access_token, $access_token_secret) = $app->request_access_token(verifier => $code);
 
-    print "Got access_token=$access_token\naccess_token_secret=$access_token_secret\n";
+    print "Got access_token=$access_token\naccess_token_secret=$access_token_secret\n" if ($debug);
     open(TOK, "> $tokenFile");
     print TOK "access_token=$access_token\naccess_token_secret=$access_token_secret\n";
     close(TOK);
