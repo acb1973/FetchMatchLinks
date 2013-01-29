@@ -167,8 +167,8 @@ sub view_restricted_resource {
 sub  update_restricted_resource {
     my $self=shift;
     my $url=shift;
-    my %extra_params_ref=shift;
-    return $self->make_restricted_request($url, 'POST', %$extra_params);    
+    my $extra_params_ref=shift;
+    return $self->make_restricted_request($url, 'POST', %$extra_params_ref);
 }
 1
 ;
