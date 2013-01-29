@@ -3,6 +3,7 @@
 use strict;
 use Net::OAuth::Client;
 use Data::Dumper;
+use XML::Hash;
 
 my $debug=0;
 my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
@@ -30,6 +31,33 @@ foreach my $team (@teams) {
         print OUT $xmloutput;
         close OUT;
         print "Wrote output for '$team' to '$team.xml'\n";
+
+        my $xmlConverter=XML::Hash->new();
+        my $dataHash = $xmlConverter->fromXMLStringtoHash($xmloutput);
+        print Dumper($dataHash) if ($debug);
+
+        my $matches=$dataHash->{'HattrickData'}{'Team'}->{'MatchList'}{'Match'};
+        print "Found " . ($#$matches+1) . " matches in output...\n" if ($debug);
+        my %matchType = (
+            '1' => 'League',
+            '2' => 'Qualification',
+            '3' => 'Cup',
+            '4' => 'Friendly',
+            '5' => 'Friendly (cup rules)', 
+            '8' => "Int'l friendly",
+            '7' => "Hattrick Masters",
+            '9' => "Int'l friendly (cup rules)",
+        );
+        foreach my $match (@$matches) {
+            my $status = $match->{'Status'}->{'text'};
+            my $matchID = $match->{'MatchID'}->{'text'};
+            my $matchtype = $match->{'MatchType'}->{'text'};
+            print "matchid: $matchID matchtype:$matchType{$matchtype} status: $status\n";
+        }
+
+        #foreach my $match (keys $dataHash->{'HattrickData'}->{'MatchList'}) {
+        #    print "$match\n";
+        #}
     }
     else {
         print STDERR "Error with data for team '$team', got:\n";
