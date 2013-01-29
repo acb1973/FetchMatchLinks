@@ -23,7 +23,7 @@ foreach my $team (@teams) {
     print "Fetching matches for team '$team'...\n" if ($debug);
     my $url="http://chpp.hattrick.org/chppxml.ashx";
     print "Fetching URL: '$url'\n" if ($debug);
-    my $result = $app->view_restricted_resource($url, file=>'matches', version=>'2.6', teamID=>"$team");
+    my $result = $app->view_restricted_resource($url, {file=>'matches', version=>'2.6', teamID=>"$team"});
     if (($result->is_success)&&($result->content!~/<Error>/)) {
         my $xmloutput = $result->content;
         open(OUT, "> $team.xml");
@@ -153,22 +153,22 @@ sub new {
 sub view_restricted_resource {
     my $self=shift;
     my $url=shift;
-    my %params=@_;
+    my $paramsRef=shift;
     if ($debug) {
     print STDERR "PARAMS:\n";
-        foreach my $key (keys %params) {
-            print "$key = $params{$key}\n";
+        foreach my $key (keys %$paramsRef) {
+            print "$key = $paramsRef->{$key}\n";
         }
     }
     print STDERR "URL:$url\n" if ($debug);
-    return $self->make_restricted_request($url, 'GET', %params);
+    return $self->make_restricted_request($url, 'GET', %$paramsRef);
 }
 
 sub  update_restricted_resource {
     my $self=shift;
     my $url=shift;
-    my %extra_params=shift;
-    return $self->make_restricted_request($url, 'POST', %extra_params);    
+    my %extra_params_ref=shift;
+    return $self->make_restricted_request($url, 'POST', %$extra_params);    
 }
 1
 ;
