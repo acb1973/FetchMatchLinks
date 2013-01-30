@@ -183,12 +183,12 @@ sub view_restricted_resource {
     my $url=shift;
     my $paramsRef=shift;
     if ($debug) {
-    print STDERR "PARAMS:\n";
+    print "PARAMS:\n";
         foreach my $key (keys %$paramsRef) {
             print "$key = $paramsRef->{$key}\n";
         }
     }
-    print STDERR "URL:$url\n" if ($debug);
+    print "URL:$url\n" if ($debug);
     return $self->make_restricted_request($url, 'GET', %$paramsRef);
 }
 
