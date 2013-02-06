@@ -11,7 +11,7 @@ my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
 my $teamFile;
 my @teams;
 
-GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile);
+GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile, 'help'=>&showUsage);
 @teams=&getTeams($teamFile);
 &showUsage() if ($#teams<0);
 
