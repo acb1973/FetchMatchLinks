@@ -11,7 +11,7 @@ my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
 my $teamFile;
 my @teams;
 
-GetOptions('debug'=>\$debug, 'file'=>\$teamFile);
+GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile);
 @teams=&getTeams($teamFile);
 &showUsage() if ($#teams<0);
 
@@ -23,6 +23,10 @@ my $app=Net::OAuthStuff->new(%tokens);
 # OK, now we can get the matches for each team
 foreach my $team (@teams) {
     print "Fetching matches for team '$team'...\n" if ($debug);
+    if (($team!~/^\d+$/)||($team<1)) {
+        print "Error: bad teamid '$team', ignoring...\n";
+        next;
+    }
     my $url="http://chpp.hattrick.org/chppxml.ashx";
     print "Fetching URL: '$url'\n" if ($debug);
     my $result = $app->view_restricted_resource($url, {file=>'matches', version=>'2.6', teamID=>"$team"});
