@@ -4,13 +4,14 @@ use strict;
 use Net::OAuth::Client;
 use Data::Dumper;
 use XML::Hash;
+use Getopt::Long;
 
 my $debug=0;
 my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
 my $teamFile;
 my @teams;
 
-&processSwitches();
+GetOptions('debug'=>\$debug, 'file'=>\$teamFile);
 @teams=&getTeams($teamFile);
 &showUsage() if ($#teams<0);
 
@@ -86,29 +87,6 @@ sub getTeams {
         }
     }
     @retval;
-}
-
-sub processSwitches {
-    my @args;
-    while($#ARGV>=0) {
-        my $arg=shift @ARGV;
-        if ($arg =~/^-/) {
-            if($arg=~/^-d(ebug)*$/) {
-                $debug=1;
-                print "DEBUG: saw -debug switch, debug is enabled.\n";
-            }
-            elsif ($arg=~/^-f(ile)*$/) {
-                $teamFile=shift @ARGV;
-            }
-            else {
-                die "Error: unrecognized switch '$arg'\n";
-            }
-        }
-        else {
-            push @args, $arg;
-        }
-    }
-    @ARGV=@args;
 }
 
 sub checkForTokens {
