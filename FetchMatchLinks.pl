@@ -5,14 +5,23 @@ use Net::OAuth::Client;
 use Data::Dumper;
 use XML::Hash;
 use Getopt::Long;
+use Date::Parse;
 
 my $debug=0;
 my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
-my $teamFile;
+my $teamFile='teams.txt';
 my $showHelp=0;
 my @teams;
+my $dir=0;
+my @validTypes=('upcoming', 'previous');
 
-GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile, 'help'=>\$showHelp);
+my @matchStatuses=('FINISHED', 'ONGOING', 'UPCOMING');
+my %matchInfo;
+
+$teamFile=undef if (! -f $teamFile);
+
+GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile, 'help'=>\$showHelp, 'previous'=>\$dir);
+my $printType =  $validTypes[$dir];
 @teams=&getTeams($teamFile);
 &showUsage() if ($showHelp||($#teams<0));
 
@@ -23,6 +32,7 @@ my $app=Net::OAuthStuff->new(%tokens);
 
 # OK, now we can get the matches for each team
 foreach my $team (@teams) {
+    %matchInfo=();
     print "Fetching matches for team '$team'...\n" if ($debug);
     if (($team!~/^\d+$/)||($team<1)) {
         print "Error: bad teamid '$team', ignoring...\n";
@@ -33,10 +43,12 @@ foreach my $team (@teams) {
     my $result = $app->view_restricted_resource($url, {file=>'matches', version=>'2.6', teamID=>"$team"});
     if (($result->is_success)&&($result->content!~/<Error>/)) {
         my $xmloutput = $result->content;
-        open(OUT, "> $team.xml");
-        print OUT $xmloutput;
-        close OUT;
-        print "Wrote output for '$team' to '$team.xml'\n";
+        if ($debug) {
+            open(OUT, "> $team.xml");
+            print OUT $xmloutput;
+            close OUT;
+            print "Wrote output for '$team' to '$team.xml'\n";
+        }
 
         my $xmlConverter=XML::Hash->new();
         my $dataHash = $xmlConverter->fromXMLStringtoHash($xmloutput);
@@ -53,17 +65,70 @@ foreach my $team (@teams) {
             '8' => "Int'l friendly",
             '7' => "Hattrick Masters",
             '9' => "Int'l friendly (cup rules)",
+            '50' => "Tournament match",
+            '51' => "Tournament playoff match",
         );
+        my $currentTime=time;
+        my $teamName;
         foreach my $match (@$matches) {
+            my $homeTeamID = $match->{'HomeTeam'}{'HomeTeamID'}->{'text'};
+            my $awayTeamID = $match->{'AwayTeam'}{'AwayTeamID'}->{'text'};
+            my $homeTeamName = $match->{'HomeTeam'}{'HomeTeamName'}->{'text'};
+            my $awayTeamName = $match->{'AwayTeam'}{'AwayTeamName'}->{'text'};
+            my $homeGoals = $match->{'HomeGoals'}->{'text'};
+            my $awayGoals = $match->{'AwayGoals'}->{'text'};
             my $status = $match->{'Status'}->{'text'};
             my $matchID = $match->{'MatchID'}->{'text'};
             my $matchtype = $match->{'MatchType'}->{'text'};
-            print "matchid: $matchID matchtype:$matchType{$matchtype} status: $status\n";
+
+            # for now, just look at league matches
+            next if ($matchtype ne '1');
+            
+            if ($homeTeamID==$team) {
+                $teamName=$homeTeamName;
+                $homeTeamName="[b]" . $homeTeamName . "[/b]";
+            }
+            else {
+                $teamName=$awayTeamName;
+                $awayTeamName="[b]" . $awayTeamName . "[/b]";
+            }
+
+            print "DEBUG: need match type description for '$matchtype'\n" if ((!length($matchType{$matchtype}))&&($debug));
+            my $result = $homeTeamID==$team?($homeGoals>$awayGoals?'W':($homeGoals==$awayGoals?"D":"L")):($awayGoals>$homeGoals?"W":($awayGoals==$homeGoals?"D":"L"));
+            my $matchDate = $match->{'MatchDate'}->{'text'};
+            my $matchOffset = $currentTime - str2time($matchDate);
+            $result = "U" if ($status eq 'UPCOMING');
+            print "matchid: $result $matchID ($homeTeamName $homeGoals - $awayGoals $awayTeamName) matchtype:$matchType{$matchtype} status: $status offset:$matchOffset\n" if ($debug);
+            $matchInfo{$matchID}{'offset'}=int($matchOffset);
+            $matchInfo{$matchID}{'text'}="$result $homeTeamName $homeGoals - $awayGoals $awayTeamName";
         }
 
-        #foreach my $match (keys $dataHash->{'HattrickData'}->{'MatchList'}) {
-        #    print "$match\n";
-        #}
+        # now, either print the upcoming or previous match
+        my @matchIds=keys %matchInfo;
+        if ($printType eq 'upcoming') {
+            @matchIds=reverse sort matchSort @matchIds;
+            while ($matchInfo{$matchIds[0]}{'offset'}>0) {
+                shift @matchIds;
+            }
+        }
+        else {
+            @matchIds=sort matchSort @matchIds;
+            while ($matchInfo{$matchIds[0]}{'offset'}<0) {
+                shift @matchIds;
+            }
+        }
+        if ($debug) {
+            print "SORTED matches:\n";
+            foreach my $m (@matchIds) {
+                print "\t$m $matchInfo{$m}{'text'} $matchInfo{$m}{'offset'}\n";
+            }
+        }
+        #print "" . $matchInfo{$matchIds[0]}{'text'} . "\n";
+        my @typeTxt=('Next', 'Previous');
+        print "$typeTxt[$dir] match for $teamName ($team) is [matchid=$matchIds[0]] " . (ref($matchInfo{$matchIds[0]}{'offset'})) . " " . ($dir==0?"":$matchInfo{$matchIds[0]}{'text'}) . "\n" if ($#matchIds>=0);
+        print "Could not find next match for $teamName ($team)\n" if ($#matchIds<0);
+
+
     }
     else {
         print STDERR "Error with data for team '$team', got:\n";
@@ -142,6 +207,12 @@ sub showUsage {
     die "Usage: $0 <teamids>\n\nor\n       $0 -f <file with teamids>\n";
 }
 
+sub matchSort {
+    return 0 if ($matchInfo{$a}{'offset'}==$matchInfo{$b}{'offset'});
+    return -1 if ($matchInfo{$a}{'offset'}<$matchInfo{$b}{'offset'});
+    return 1 if ($matchInfo{$a}{'offset'}>$matchInfo{$b}{'offset'});
+}
+
 package Net::OAuthStuff;
 
 use strict;
@@ -181,5 +252,5 @@ sub  update_restricted_resource {
     my $extra_params_ref=shift;
     return $self->make_restricted_request($url, 'POST', %$extra_params_ref);
 }
-1
-;
+
+1;
