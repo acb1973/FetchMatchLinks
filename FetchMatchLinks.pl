@@ -9,11 +9,12 @@ use Getopt::Long;
 my $debug=0;
 my $tokenFile="$ENV{'HOME'}/.FetchMatchLinksTokens";
 my $teamFile;
+my $showHelp=0;
 my @teams;
 
-GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile, 'help'=>&showUsage);
+GetOptions('debug'=>\$debug, 'file=s'=>\$teamFile, 'help'=>\$showHelp);
 @teams=&getTeams($teamFile);
-&showUsage() if ($#teams<0);
+&showUsage() if ($showHelp||($#teams<0));
 
 my %tokens = &checkForTokens();
 my $app=Net::OAuthStuff->new(%tokens);
